@@ -1,0 +1,68 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RegRails — deterministic EU compliance primitives</title>
+<style>
+:root{--ink:#111827;--mut:#6b7280;--line:#e5e7eb;--acc:#065f46;--bg:#fcfcfa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font:16px/1.65 ui-serif,Georgia,'Times New Roman',serif;-webkit-font-smoothing:antialiased}
+.w{max-width:760px;margin:0 auto;padding:64px 24px 96px}
+h1{font-size:2.4rem;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.15rem;margin:2.6em 0 .6em;letter-spacing:.04em;text-transform:uppercase;
+font-family:ui-sans-serif,system-ui,sans-serif;color:var(--acc)}
+.lede{font-size:1.15rem;color:#374151;margin:0 0 1.2em}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em}
+table{width:100%;border-collapse:collapse;margin:.6em 0 1.4em;font-size:.9rem}
+td,th{text-align:left;padding:.5em .6em;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.75rem;text-transform:uppercase;
+letter-spacing:.05em;color:var(--mut)}
+.p{white-space:nowrap;color:var(--acc);font-family:ui-monospace,monospace;font-size:.85rem}
+.note{border-left:3px solid var(--acc);padding:.2em 0 .2em 1em;margin:1.6em 0;color:#374151}
+footer{margin-top:4em;padding-top:1.4em;border-top:1px solid var(--line);
+color:var(--mut);font-size:.85rem}a{color:var(--acc)}
+</style>
+<div class="w">
+<h1>RegRails</h1>
+<p class="lede">Deterministic compliance primitives for EU trade and AI rules. Structural checks and transparent arithmetic against published legal text — signed, evidenced, and honest about what they don't establish.</p>
+
+<div class="note"><strong>What this is not.</strong> Not legal advice. Not a customs ruling. Not a filing. RegRails does not supply default emission factors, does not consult satellite deforestation data, and does not classify your goods. Every response says so in-band.</div>
+
+<h2>CBAM · in force since 1 Jan 2026</h2>
+<table>
+<tr><th>Endpoint</th><th>Does</th><th>Price</th></tr>
+<tr><td class="mono">GET /v1/cbam/scope</td><td>Is this CN code in scope, which sector, does the 50 t de minimis apply</td><td class="p">$0.02</td></tr>
+<tr><td class="mono">POST /v1/cbam/threshold</td><td>A year of import lines against the de minimis — catches the retroactivity trap on crossing</td><td class="p">$0.05</td></tr>
+<tr><td class="mono">POST /v1/cbam/estimate</td><td>Embedded emissions and indicative cost, every arithmetic step echoed, your factors</td><td class="p">$0.25</td></tr>
+<tr><td class="mono">POST /v1/cbam/declaration-check</td><td>Structural pre-submission check of a draft annual declaration</td><td class="p">$1.00</td></tr>
+</table>
+
+<h2>EUDR · 30 Dec 2026 large &amp; medium</h2>
+<table>
+<tr><th>Endpoint</th><th>Does</th><th>Price</th></tr>
+<tr><td class="mono">GET /v1/eudr/scope</td><td>In scope, which commodity, which deadline tier</td><td class="p">$0.02</td></tr>
+<tr><td class="mono">POST /v1/eudr/dds-validate</td><td>Structural validation of a draft Due Diligence Statement</td><td class="p">$0.15</td></tr>
+<tr><td class="mono">POST /v1/eudr/geo-check</td><td>Plot geometry, area, and the 4 ha polygon rule — catches the lat/lon swap</td><td class="p">$0.10</td></tr>
+</table>
+
+<h2>AI Act Article 50 · applies since 2 Aug 2026</h2>
+<p style="font-size:.95rem;color:#374151;margin-top:-.4em">Transparency obligations were <em>not</em> deferred by the AI Omnibus, which moved only the high-risk dates to Dec 2027 and Aug 2028.</p>
+<table>
+<tr><th>Endpoint</th><th>Does</th><th>Price</th></tr>
+<tr><td class="mono">GET /v1/aiact/art50</td><td>Which controls apply to your obligation category</td><td class="p">$0.04</td></tr>
+<tr><td class="mono">POST /v1/aiact/art50-check</td><td>Coverage check on declared controls</td><td class="p">$0.04</td></tr>
+<tr><td class="mono">POST /v1/aiact/c2pa-check</td><td>Content-credential manifest structure</td><td class="p">$0.04</td></tr>
+</table>
+
+<h2>Free</h2>
+<p><a href="/v1/calendar">/v1/calendar</a> — the compliance dates, including the ones that moved.<br>
+<a href="/v1/methodology">/v1/methodology</a> — what every check does and does not establish.</p>
+
+<h2>Two ways to pay</h2>
+<p><strong>API key</strong> — monthly quota, normal invoice. For customs brokers, ERP vendors and compliance teams.<br>
+<strong>x402</strong> — USDC on Base, per call, no account, no key. For agents.</p>
+
+<footer>
+Operated from Luxembourg by an independent professional. No professional indemnity cover — confirm anything with financial or legal consequence with a qualified adviser.<br>
+<a href="/llms.txt">llms.txt</a> · <a href="/openapi.json">OpenAPI</a> · <a href="/.well-known/x402.json">x402</a> · <a href="/.well-known/signing-key.json">signing key</a> · contact@chainverdict.xyz
+</footer>
+</div>
+</html>

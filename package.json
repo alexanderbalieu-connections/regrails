@@ -1,0 +1,24 @@
+{
+  "name": "regrails",
+  "version": "1.0.0",
+  "description": "Deterministic EU trade & AI compliance primitives (CBAM, EUDR, AI Act Art. 50) over x402 and API key.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "keygen": "node scripts/keygen.js"
+  },
+  "dependencies": {
+    "@coinbase/x402": "^2.1.0",
+    "@x402/core": "^2.21.0",
+    "@x402/evm": "^2.21.0",
+    "@x402/express": "^2.21.0",
+    "@x402/extensions": "^2.0.0",
+    "express": "^5.2.1"
+  },
+  "license": "MIT"
+}
