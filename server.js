@@ -170,6 +170,38 @@ export function createApp(config = {}) {
   app.post('/v1/aiact/c2pa-check', (req, res) => res.json(signed('c2pa.check', c2paCheck(req.body || {}))));
 
   // ---- free ----
+  // Public EUDR tool. Deliberately unmetered and unpaid: EUDR enforcement lands
+  // 2026-12-30 and thousands of operators are about to discover their plot geometry
+  // is invalid with no way to find out. The paid batch routes are the upsell; this
+  // is the front door. Rate-limited per IP — req.ip is the real client because
+  // trust proxy is set above.
+  const freeHits = new Map();
+  const freeLimit = (max) => (req, res, next) => {
+    const now = Date.now();
+    const key = `${req.ip}:${req.path}`;
+    const hits = (freeHits.get(key) || []).filter((t) => t > now - 3600_000);
+    if (hits.length >= max) {
+      return res.status(429).json({
+        error: 'rate limited',
+        limit: `${max} per hour on the free tool`,
+        hint: 'For volume, use the paid routes (no account, USDC on Base) or an API key: contact@chainverdict.xyz',
+      });
+    }
+    hits.push(now);
+    freeHits.set(key, hits);
+    if (freeHits.size > 5000) for (const [k, v] of freeHits) if (!v.some((t) => t > now - 3600_000)) freeHits.delete(k);
+    next();
+  };
+
+  app.post('/v1/free/eudr/geo-check', freeLimit(60), (req, res) =>
+    res.json({ ...eudrGeoCheck(req.body || {}), tier: 'free', paidEquivalent: '/v1/eudr/geo-check' }));
+  app.post('/v1/free/eudr/dds-validate', freeLimit(30), (req, res) =>
+    res.json({ ...eudrDdsValidate(req.body || {}), tier: 'free', paidEquivalent: '/v1/eudr/dds-validate' }));
+  app.get('/v1/free/eudr/scope', freeLimit(120), (req, res) =>
+    res.json({ ...eudrScope(req.query.hs ?? req.query.code), tier: 'free' }));
+
+  app.get('/tools/eudr', (req, res) => res.sendFile(path.join(__dirname, 'public', 'eudr.html')));
+
   app.get('/v1/methodology', (req, res) => res.json(methodologyDocument()));
   app.get('/v1/calendar', (req, res) => res.json({
     service: 'RegRails', asOf: CBAM_AS_OF,
@@ -184,6 +216,7 @@ export function createApp(config = {}) {
   app.get('/.well-known/regrails.json', (req, res) => res.json({
     service: 'RegRails',
     description: 'Deterministic EU trade and AI compliance primitives: CBAM scope and liability arithmetic, EUDR due-diligence structure and plot geometry, AI Act Article 50 transparency structure.',
+    freeTools: { eudrValidator: '/tools/eudr', geoCheck: '/v1/free/eudr/geo-check', ddsValidate: '/v1/free/eudr/dds-validate', scope: '/v1/free/eudr/scope' },
     signingKeys: [signer.wellKnown().keys[0]],
     ephemeralKey: signer.ephemeral,
     billing: { x402: paidMode, apiKey: keyCount(apiKeysRaw) > 0 },
@@ -218,6 +251,12 @@ Structural and arithmetic checks against published EU legal text. Not legal advi
 - GET  /v1/aiact/art50?kind=         (${prices.art50})  which controls apply to chatbot / synthetic_content / deepfake / public_interest_text
 - POST /v1/aiact/art50-check         (${prices.art50})  coverage check on declared controls
 - POST /v1/aiact/c2pa-check          (${prices.c2pa})   content-credential manifest structure
+
+## Free tools (no payment, no account, rate-limited)
+- https://reg.chainverdict.xyz/tools/eudr  — browser validator for EUDR plot geometry and draft Due Diligence Statements
+- POST /v1/free/eudr/geo-check     (60/hr)  same checks as the paid route
+- POST /v1/free/eudr/dds-validate  (30/hr)
+- GET  /v1/free/eudr/scope?hs=     (120/hr)
 
 ## Free
 - GET /v1/methodology  — what every check does and does not establish
