@@ -175,6 +175,20 @@ export function createApp(config = {}) {
   // is invalid with no way to find out. The paid batch routes are the upsell; this
   // is the front door. Rate-limited per IP — req.ip is the real client because
   // trust proxy is set above.
+  // Aggregate usage counters. Deliberately narrow: a count per endpoint per day and
+  // nothing else. No IP addresses, no submitted content, no identifiers, no persistence
+  // beyond process lifetime. This keeps the published promise that nothing you paste is
+  // stored, while making it possible to know whether the free tool is used at all —
+  // which was previously invisible.
+  const usage = { since: new Date().toISOString(), days: new Map() };
+  function countUse(route) {
+    const day = new Date().toISOString().slice(0, 10);
+    if (!usage.days.has(day)) usage.days.set(day, new Map());
+    const d = usage.days.get(day);
+    d.set(route, (d.get(route) || 0) + 1);
+    if (usage.days.size > 90) usage.days.delete([...usage.days.keys()].sort()[0]);
+  }
+
   const freeHits = new Map();
   const freeLimit = (max) => (req, res, next) => {
     const now = Date.now();
@@ -193,14 +207,50 @@ export function createApp(config = {}) {
     next();
   };
 
-  app.post('/v1/free/eudr/geo-check', freeLimit(60), (req, res) =>
-    res.json({ ...eudrGeoCheck(req.body || {}), tier: 'free', paidEquivalent: '/v1/eudr/geo-check' }));
-  app.post('/v1/free/eudr/dds-validate', freeLimit(30), (req, res) =>
-    res.json({ ...eudrDdsValidate(req.body || {}), tier: 'free', paidEquivalent: '/v1/eudr/dds-validate' }));
-  app.get('/v1/free/eudr/scope', freeLimit(120), (req, res) =>
-    res.json({ ...eudrScope(req.query.hs ?? req.query.code), tier: 'free' }));
+  app.post('/v1/free/eudr/geo-check', freeLimit(60), (req, res) => {
+    countUse('free:geo-check');
+    res.json({ ...eudrGeoCheck(req.body || {}), tier: 'free', paidEquivalent: '/v1/eudr/geo-check' });
+  });
+  app.post('/v1/free/eudr/dds-validate', freeLimit(30), (req, res) => {
+    countUse('free:dds-validate');
+    res.json({ ...eudrDdsValidate(req.body || {}), tier: 'free', paidEquivalent: '/v1/eudr/dds-validate' });
+  });
+  app.get('/v1/free/eudr/scope', freeLimit(120), (req, res) => {
+    countUse('free:scope');
+    res.json({ ...eudrScope(req.query.hs ?? req.query.code), tier: 'free' });
+  });
 
-  app.get('/tools/eudr', (req, res) => res.sendFile(path.join(__dirname, 'public', 'eudr.html')));
+  app.get('/tools/eudr', (req, res) => {
+    countUse('page:tools/eudr');
+    res.sendFile(path.join(__dirname, 'public', 'eudr.html'));
+  });
+
+  // Usage readout. Protected by USAGE_TOKEN if set; open if not, since it contains
+  // nothing sensitive — only counts.
+  app.get('/admin/usage', (req, res) => {
+    const token = process.env.USAGE_TOKEN;
+    if (token && req.query.token !== token) return res.status(401).json({ error: 'bad token' });
+    const days = [...usage.days.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([day, m]) => ({ day, ...Object.fromEntries([...m.entries()].sort()) }));
+    const totals = {};
+    for (const [, m] of usage.days) for (const [k, v] of m) totals[k] = (totals[k] || 0) + v;
+    const pageViews = totals['page:tools/eudr'] || 0;
+    const validations = (totals['free:dds-validate'] || 0) + (totals['free:geo-check'] || 0);
+    res.json({
+      countingSince: usage.since,
+      note: 'Aggregate call counts only. No IP addresses, no submitted content, no identifiers. Resets on deploy.',
+      totals,
+      engagement: {
+        pageViews,
+        validations,
+        validationsPerView: pageViews ? Number((validations / pageViews).toFixed(2)) : null,
+        reading: validations === 0 ? 'nobody has run a check yet'
+          : validations < 10 ? 'a handful of checks — could be you'
+          : 'someone other than you is using this; look for the contact route',
+      },
+      days,
+    });
+  });
 
   app.get('/v1/methodology', (req, res) => res.json(methodologyDocument()));
   app.get('/v1/calendar', (req, res) => res.json({
