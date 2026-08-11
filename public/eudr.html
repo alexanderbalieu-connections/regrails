@@ -1,0 +1,183 @@
+<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free EUDR plot &amp; DDS validator — check your geolocation before you file</title>
+<meta name="description" content="Free tool: validate EUDR plot geolocation and Due Diligence Statement structure. Catches unclosed polygons, lat/lon swaps, self-intersections, and the 4-hectare polygon rule. No signup.">
+<style>
+:root{--ink:#111827;--mut:#6b7280;--line:#e5e7eb;--acc:#065f46;--bad:#991b1b;--warn:#92400e;--bg:#fcfcfa;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 ui-serif,Georgia,'Times New Roman',serif;-webkit-font-smoothing:antialiased}
+.w{max-width:860px;margin:0 auto;padding:56px 24px 96px}
+h1{font-size:2.1rem;margin:0 0 .25em;letter-spacing:-.02em;line-height:1.15}
+.lede{font-size:1.1rem;color:#374151;margin:0 0 .5em}
+.clock{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.8rem;letter-spacing:.03em;
+text-transform:uppercase;color:var(--acc);border:1px solid var(--acc);border-radius:2px;padding:.25em .6em;margin:.6em 0 1.6em}
+h2{font-size:1.05rem;margin:2.4em 0 .5em;letter-spacing:.05em;text-transform:uppercase;
+font-family:ui-sans-serif,system-ui,sans-serif;color:var(--acc)}
+.tabs{display:flex;gap:2px;margin:0 0 -1px}
+.tab{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.85rem;padding:.55em 1.1em;border:1px solid var(--line);
+border-bottom:none;background:#f3f4f1;cursor:pointer;color:var(--mut)}
+.tab[aria-selected=true]{background:var(--card);color:var(--ink);font-weight:600}
+.panel{border:1px solid var(--line);background:var(--card);padding:18px}
+textarea{width:100%;min-height:210px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;
+line-height:1.5;border:1px solid var(--line);padding:11px;resize:vertical;background:#fdfdfc;color:var(--ink)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:11px}
+button{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.9rem;padding:.6em 1.3em;border:none;
+background:var(--acc);color:#fff;cursor:pointer;border-radius:2px}
+button:disabled{opacity:.5;cursor:default}
+button.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.out{margin-top:16px;display:none}
+.verdict{font-family:ui-sans-serif,system-ui,sans-serif;font-weight:600;padding:.6em .9em;border-radius:2px;margin-bottom:12px}
+.ok{background:#ecfdf5;color:var(--acc);border-left:3px solid var(--acc)}
+.no{background:#fef2f2;color:var(--bad);border-left:3px solid var(--bad)}
+ul.f{list-style:none;padding:0;margin:0 0 12px}
+ul.f li{padding:.5em .8em;border-left:3px solid var(--line);margin-bottom:5px;font-size:.9rem;background:#fafaf8}
+ul.f li.e{border-left-color:var(--bad)}
+ul.f li.wn{border-left-color:var(--warn)}
+.meta{font-size:.85rem;color:var(--mut);font-family:ui-sans-serif,system-ui,sans-serif}
+.meta b{color:var(--ink)}
+details{margin-top:12px;font-size:.85rem}
+summary{cursor:pointer;color:var(--acc);font-family:ui-sans-serif,system-ui,sans-serif}
+pre{background:#f6f6f3;padding:11px;overflow:auto;font-size:.75rem;border:1px solid var(--line);margin:.6em 0 0}
+.note{border-left:3px solid var(--acc);padding:.3em 0 .3em 1em;margin:1.8em 0;color:#374151;font-size:.95rem}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:.5em 0 1.2em}
+td,th{text-align:left;padding:.45em .6em;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.85em;background:#f3f4f1;padding:.1em .3em}
+footer{margin-top:4em;padding-top:1.3em;border-top:1px solid var(--line);color:var(--mut);font-size:.85rem}
+a{color:var(--acc)}
+</style>
+<div class="w">
+
+<h1>Is your EUDR plot geolocation actually valid?</h1>
+<p class="lede">Paste a plot geometry or a draft Due Diligence Statement. Get back exactly what is wrong with it, before a competent authority tells you. Free, no signup, nothing stored.</p>
+<div class="clock" id="clock">Loading deadline…</div>
+
+<div class="tabs" role="tablist">
+  <div class="tab" role="tab" id="t-geo" aria-selected="true" onclick="pick('geo')">Plot geometry</div>
+  <div class="tab" role="tab" id="t-dds" aria-selected="false" onclick="pick('dds')">Full DDS</div>
+</div>
+
+<div class="panel">
+  <div id="p-geo">
+    <textarea id="in-geo" spellcheck="false"></textarea>
+    <div class="row">
+      <button onclick="run('geo')" id="b-geo">Check geometry</button>
+      <button class="ghost" onclick="sample('geo')">Load a broken example</button>
+    </div>
+  </div>
+  <div id="p-dds" style="display:none">
+    <textarea id="in-dds" spellcheck="false"></textarea>
+    <div class="row">
+      <button onclick="run('dds')" id="b-dds">Validate DDS</button>
+      <button class="ghost" onclick="sample('dds')">Load a broken example</button>
+    </div>
+  </div>
+  <div class="out" id="out"></div>
+</div>
+
+<h2>What it checks</h2>
+<table>
+<tr><th>Check</th><th>Why it bites</th></tr>
+<tr><td>Coordinate order</td><td><code>[lat, lon]</code> instead of GeoJSON's <code>[lon, lat]</code> silently relocates a Ghanaian cocoa plot to the Atlantic. The file parses. Nothing complains.</td></tr>
+<tr><td>Ring closure</td><td>A polygon whose first and last position differ is not a polygon. Many export tools omit the closing point.</td></tr>
+<tr><td>Self-intersection</td><td>A bowtie ring has no well-defined interior, so its area is meaningless and its containment tests are wrong.</td></tr>
+<tr><td>The 4-hectare rule</td><td>Plots above 4 ha need a polygon; a point is not sufficient. Declaring 10 ha with a single coordinate is a rejected statement.</td></tr>
+<tr><td>Declared vs computed area</td><td>If your stated hectares and your geometry disagree by more than 2×, one of them is wrong — usually a unit or a coordinate-order error.</td></tr>
+<tr><td>HS ↔ commodity consistency</td><td>An HS code that maps to cocoa alongside a declared commodity of coffee is an internal contradiction on the face of the statement.</td></tr>
+<tr><td>Cut-off assertion</td><td>A DDS must positively assert the commodity was not produced on land deforested after 31 December 2020. Silence is not compliance.</td></tr>
+</table>
+
+<div class="note">
+<strong>What this does not do.</strong> It does not check deforestation — not against satellite imagery, not against any forest baseline. It does not verify legality of production in the country of origin. It does not file anything with the EU Information System. It tells you whether your statement is <em>well-formed</em>, which is a necessary condition and nowhere near a sufficient one.
+</div>
+
+<h2>Beyond a handful of plots</h2>
+<p>The same checks run as an API, per call, with an Ed25519 signature on every response so you can keep a verifiable record of what was checked and when:</p>
+<table>
+<tr><td><code>POST /v1/eudr/dds-validate</code></td><td>Full statement, per-plot breakdown</td><td>$0.15</td></tr>
+<tr><td><code>POST /v1/eudr/geo-check</code></td><td>Single plot geometry</td><td>$0.10</td></tr>
+<tr><td><code>GET /v1/eudr/scope?hs=</code></td><td>Is this HS code in scope, which deadline tier</td><td>$0.02</td></tr>
+</table>
+<p class="meta">Pay per call in USDC on Base with no account, or ask for an API key with a monthly quota — <a href="mailto:contact@chainverdict.xyz">contact@chainverdict.xyz</a>. Also see <a href="/v1/calendar">the compliance calendar</a> and <a href="/v1/methodology">the full methodology</a>.</p>
+
+<footer>
+Built and operated from Luxembourg by an independent professional. <strong>Not legal advice, not customs advice, not a filing.</strong> No professional indemnity cover — confirm anything with legal or financial consequence with a qualified adviser.<br>
+Nothing you paste is stored or logged. Validation runs server-side and the response is discarded.<br>
+<a href="/">RegRails</a> · <a href="/llms.txt">llms.txt</a> · <a href="/openapi.json">OpenAPI</a>
+</footer>
+</div>
+
+<script>
+const SAMPLES = {
+  geo: {
+    good: JSON.stringify({ geometry: { type: "Polygon", coordinates: [[[-1.20,6.70],[-1.19,6.70],[-1.19,6.71],[-1.20,6.71],[-1.20,6.70]]] }, declaredAreaHectares: 120 }, null, 2),
+    bad: JSON.stringify({ geometry: { type: "Point", coordinates: [6.70, -1.20] }, declaredAreaHectares: 10 }, null, 2)
+  },
+  dds: {
+    good: JSON.stringify({ operatorName: "Acme Trading Sarl", operatorAddress: "Luxembourg", eoriNumber: "LU123456789",
+      hsCode: "1801.00.00", productDescription: "cocoa beans, raw", quantity: { value: 24000, unit: "kg" },
+      countryOfProduction: "GH", productionAfterCutoffConfirmed: true,
+      plots: [{ geometry: { type: "Point", coordinates: [-1.2, 6.7] }, areaHectares: 2, productionDate: "2026-03-01" }] }, null, 2),
+    bad: JSON.stringify({ operatorName: "Acme Trading Sarl", operatorAddress: "Luxembourg", eoriNumber: "123456789",
+      hsCode: "1801.00.00", commodity: "coffee", productDescription: "cocoa beans, raw", quantity: { value: 24000 },
+      countryOfProduction: "Ghana",
+      plots: [{ geometry: { type: "Polygon", coordinates: [[[-1.20,6.70],[-1.19,6.71],[-1.19,6.70],[-1.20,6.71]]] }, areaHectares: 40 }] }, null, 2)
+  }
+};
+let tab = 'geo';
+function pick(t){
+  tab = t;
+  for (const k of ['geo','dds']) {
+    document.getElementById('t-'+k).setAttribute('aria-selected', String(k===t));
+    document.getElementById('p-'+k).style.display = k===t ? '' : 'none';
+  }
+  document.getElementById('out').style.display = 'none';
+}
+function sample(t){ document.getElementById('in-'+t).value = SAMPLES[t].bad; }
+function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function run(t){
+  const btn = document.getElementById('b-'+t), out = document.getElementById('out');
+  const raw = document.getElementById('in-'+t).value.trim();
+  out.style.display = 'block';
+  if (!raw) { out.innerHTML = '<div class="verdict no">Nothing to check — paste some JSON, or load the broken example.</div>'; return; }
+  let body;
+  try { body = JSON.parse(raw); }
+  catch (e) { out.innerHTML = '<div class="verdict no">That is not valid JSON</div><ul class="f"><li class="e">'+esc(e.message)+'</li></ul>'; return; }
+
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const res = await fetch('/v1/free/eudr/' + (t==='geo' ? 'geo-check' : 'dds-validate'),
+      { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+    const d = await res.json();
+    if (res.status === 429) { out.innerHTML = '<div class="verdict no">Rate limited</div><ul class="f"><li class="wn">'+esc(d.hint||'')+'</li></ul>'; return; }
+    const ok = t==='geo' ? d.valid : d.structurallyValid;
+    const errs = d.errors || [], warns = d.warnings || [];
+    let h = '<div class="verdict '+(ok?'ok':'no')+'">'+(ok
+      ? 'Structurally valid — no configured check failed. That is not an approval.'
+      : errs.length+' problem'+(errs.length===1?'':'s')+' found')+'</div>';
+    if (errs.length) h += '<ul class="f">'+errs.map(e=>'<li class="e">'+esc(e)+'</li>').join('')+'</ul>';
+    if (warns.length) h += '<ul class="f">'+warns.map(w=>'<li class="wn">'+esc(w)+'</li>').join('')+'</ul>';
+    const bits = [];
+    if (d.computedAreaHectares != null) bits.push('computed area <b>'+d.computedAreaHectares+' ha</b>');
+    if (d.totalComputedAreaHectares) bits.push('total plot area <b>'+d.totalComputedAreaHectares+' ha</b>');
+    if (d.commodity) bits.push('commodity <b>'+esc(d.commodity)+'</b>');
+    if (d.plotsChecked != null) bits.push('<b>'+d.plotsChecked+'</b> plot(s) checked');
+    if (bits.length) h += '<div class="meta">'+bits.join(' · ')+'</div>';
+    h += '<details><summary>Full response</summary><pre>'+esc(JSON.stringify(d,null,2))+'</pre></details>';
+    out.innerHTML = h;
+  } catch (e) {
+    out.innerHTML = '<div class="verdict no">Could not reach the validator</div><ul class="f"><li class="e">'+esc(e.message)+'</li></ul>';
+  } finally { btn.disabled = false; btn.textContent = t==='geo' ? 'Check geometry' : 'Validate DDS'; }
+}
+
+(function(){
+  const d = Math.ceil((Date.UTC(2026,11,30) - Date.now())/86400000);
+  document.getElementById('clock').textContent =
+    d > 0 ? d + ' days until EUDR applies to large and medium operators — 30 December 2026'
+          : 'EUDR applies to large and medium operators as of 30 December 2026';
+  document.getElementById('in-geo').value = SAMPLES.geo.good;
+  document.getElementById('in-dds').value = SAMPLES.dds.good;
+})();
+</script>
+</html>
