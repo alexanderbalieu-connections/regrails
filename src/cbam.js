@@ -21,18 +21,58 @@ const DE_MINIMIS_EXEMPT_SECTORS = new Set(['electricity', 'hydrogen']);
 // CN prefixes by sector. Prefix match on the digits of a CN/HS code.
 // Indicative and must be checked against Annex I of the Regulation before reliance —
 // this is stated in every response.
+// Scope entries. `ex` marks a heading that Annex I lists only PARTIALLY — Annex I
+// writes it as "ex NNNN", meaning only specified products within the heading are
+// covered. A prefix match on an `ex` heading CANNOT decide scope on its own, so we
+// return `qualified: true` and refuse to assert a clean yes.
+//
+// `excludes` are codes expressly carved out of a listed heading.
+//
+// Corrected 11 Aug 2026 after external review against the consolidated text
+// (Reg. 2023/956 as amended by Reg. 2025/2083). Prior versions used naked prefixes
+// and returned confident answers for goods Annex I excludes.
 const SECTORS = [
-  { sector: 'cement',       prefixes: ['2507', '2523'] },
-  { sector: 'electricity',  prefixes: ['2716'] },
-  { sector: 'fertilisers',  prefixes: ['2808', '2814', '2834', '3102', '3105'] },
-  { sector: 'iron_steel',   prefixes: ['72', '7301', '7302', '7303', '7304', '7305', '7306', '7307', '7308', '7309', '7310', '7311', '7318', '7326'] },
-  { sector: 'aluminium',    prefixes: ['7601', '7603', '7604', '7605', '7606', '7607', '7608', '7609', '7610', '7611', '7612', '7613', '7614', '7616'] },
-  { sector: 'hydrogen',     prefixes: ['280410'] },
+  { sector: 'cement', entries: [
+    { code: '250700', ex: true, note: 'Annex I lists ex 2507 00 80 and excludes non-calcined kaolinic clays' },
+    { code: '2523' },
+  ]},
+  { sector: 'electricity', entries: [{ code: '2716' }] },
+  { sector: 'fertilisers', entries: [
+    { code: '2808' }, { code: '2814' },
+    { code: '283421', note: 'only potassium nitrates (2834 21); the rest of heading 2834 is not listed' },
+    { code: '3102' },
+    { code: '3105', excludes: ['310560'], note: 'heading 3105 except 3105 60 00' },
+  ]},
+  { sector: 'iron_steel', entries: [
+    // Chapter 72 is listed as a whole EXCEPT all 7204 ferrous waste/scrap and
+    // specified 7202 ferro-alloys. 7204 is a clean exclusion. 7202 is partial, so it
+    // gets its own entry and returns requires_verification rather than a yes or a no.
+    { code: '72', excludes: ['7204'],
+      note: 'Annex I lists chapter 72 except specified 7202 ferro-alloys and all 7204 ferrous waste and scrap' },
+    { code: '7202', ex: true,
+      note: 'Annex I excludes SPECIFIED 7202 ferro-alloys but not all of heading 7202. Check the exact subheading against Annex I — this is the one place in chapter 72 where a heading match cannot decide it.' },
+    { code: '7301' }, { code: '7302' }, { code: '7303' }, { code: '7304' }, { code: '7305' },
+    { code: '7306' }, { code: '7307' }, { code: '7308' }, { code: '7309' }, { code: '7310' },
+    { code: '7311' }, { code: '7318' }, { code: '7326' },
+  ]},
+  { sector: 'aluminium', entries: [
+    { code: '7601' }, { code: '7603' }, { code: '7604' }, { code: '7605' }, { code: '7606' },
+    { code: '7607' }, { code: '7608' }, { code: '7609' }, { code: '7610' }, { code: '7611' },
+    { code: '7612' }, { code: '7613' }, { code: '7614' }, { code: '7616' },
+  ]},
+  { sector: 'hydrogen', entries: [{ code: '280410' }] },
+
+  // Resolved 11 Aug 2026 (third review, cited to Annex I):
+  //   2601 12 00 IS expressly listed under Iron and steel -> clean entry below.
+  //   7317, 7323, 7324, 7602, 7615 are NOT listed -> removed entirely. Annex I is an
+  //   enumerated list; do not infer chapter-wide coverage from neighbouring headings.
+  { sector: 'iron_steel', entries: [
+    { code: '260112', note: 'agglomerated iron ores and concentrates, other than roasted iron pyrites — expressly listed in Annex I, Iron and steel' },
+  ]},
 ];
 
 export function normaliseCn(input) {
-  const digits = String(input ?? '').replace(/[^0-9]/g, '');
-  return digits;
+  return String(input ?? '').replace(/[^0-9]/g, '');
 }
 
 export function cbamScope(rawCode) {
@@ -44,28 +84,39 @@ export function cbamScope(rawCode) {
 
   let best = null;
   for (const s of SECTORS) {
-    for (const p of s.prefixes) {
-      if (cn.startsWith(p) && (!best || p.length > best.prefix.length)) {
-        best = { sector: s.sector, prefix: p };
+    for (const e of s.entries) {
+      if (cn.startsWith(e.code) && (!best || e.code.length > best.entry.code.length)) {
+        best = { sector: s.sector, entry: e };
       }
     }
   }
 
   if (!best) {
     return {
-      input: rawCode, cn, valid: true, inScope: false, sector: null,
-      deMinimisApplies: null,
-      note: 'No CBAM sector prefix matched. Absence of a match is not proof the good is out of scope — verify against Annex I.',
+      input: rawCode, cn, valid: true, inScope: false, sector: null, qualified: false,
+      note: 'No CBAM sector entry matched. Absence of a match is NOT proof the good is out of scope — Annex I is the authority and this list can lag amendment.',
       asOf: CBAM_AS_OF,
     };
   }
 
-  return {
-    input: rawCode, cn, valid: true, inScope: true,
-    sector: best.sector,
-    matchedPrefix: best.prefix,
-    deMinimisApplies: !DE_MINIMIS_EXEMPT_SECTORS.has(best.sector),
-    deMinimisTonnes: DE_MINIMIS_EXEMPT_SECTORS.has(best.sector) ? null : DE_MINIMIS_TONNES,
+  const { sector, entry } = best;
+  const excluded = (entry.excludes || []).find((x) => cn.startsWith(x));
+  if (excluded) {
+    return {
+      input: rawCode, cn, valid: true, inScope: false, sector, qualified: false,
+      excludedBy: excluded,
+      note: `CN ${cn} falls under an exclusion carved out of heading ${entry.code}. ${entry.note || ''}`.trim(),
+      asOf: CBAM_AS_OF,
+    };
+  }
+
+  const deMinimis = !DE_MINIMIS_EXEMPT_SECTORS.has(sector);
+  const out = {
+    input: rawCode, cn, valid: true, inScope: true, sector,
+    matchedEntry: entry.code,
+    qualified: Boolean(entry.ex),
+    deMinimisApplies: deMinimis,
+    deMinimisTonnes: deMinimis ? DE_MINIMIS_TONNES : null,
     obligations: {
       authorisedDeclarantRequired: true,
       annualDeclarationDue: '30 September of the year following import',
@@ -74,7 +125,18 @@ export function cbamScope(rawCode) {
     },
     asOf: CBAM_AS_OF,
   };
+  if (entry.note) out.qualifierNote = entry.note;
+  if (entry.ex) {
+    out.inScope = 'requires_verification';
+    out.warning = 'Annex I lists this heading only PARTIALLY (an "ex" entry). A code match at heading level does NOT establish that this specific good is in scope. Check the exact subheading against Annex I before relying on this.';
+  }
+  if (entry.disputed) {
+    out.disputed = true;
+    out.warning = 'DISPUTED ENTRY. Two independent reviews disagreed about whether this heading is in Annex I, and neither verified it against the primary text. RegRails will not assert either answer. Check Annex I directly.';
+  }
+  return out;
 }
+
 
 // Running de minimis tracker. Caller supplies their own import lines; we do the
 // arithmetic and flag the retroactivity trap, which is the part people get wrong.

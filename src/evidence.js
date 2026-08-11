@@ -19,7 +19,7 @@ const SEMANTICS = {
   structuralIsNotSubstantive:
     'A "structurally valid" result means the input is well-formed and internally consistent. It is NOT a statement that the underlying facts are true, that the emissions figures are correct, or that the land was deforestation-free.',
   inScopeIsAdvisory:
-    'Scope answers are prefix matches against bundled code lists. A match is a strong signal; a NON-match is weak and is never proof that a good is outside scope. Annex I of the relevant Regulation is the authority.',
+    'Scope answers match against bundled code entries derived from Annex I. Annex I uses "ex" entries that cover only PART of a heading; where one is matched, RegRails returns inScope: "requires_verification" rather than a yes, because a heading-level match cannot decide those. A clean match is a strong signal; a NON-match is weak and is never proof a good is outside scope. Annex I is the authority.',
   arithmeticNotEstimation:
     'Where a figure is returned, RegRails performed arithmetic on values YOU supplied. It does not supply default emission factors, benchmark values, or certificate prices, because a stale default produces a wrong liability.',
   signatureProvesIntegrityNotTruth:
@@ -36,6 +36,8 @@ const REG = {
     assurance: { level: 'structural', basis: 'prefix match is deterministic; the underlying code list is bundled and can lag amendments' },
     limitations: [
       'A non-match does NOT establish that the good is outside CBAM. Composite and downstream goods are the usual failure case.',
+      'Where inScope is "requires_verification", Annex I lists the heading only partially and this service cannot decide it. Treat that as an instruction to check the subheading, not as a yes.',
+      'The bundled entries were corrected on 2026-08-11 against the consolidated text after external review. A pending proposal (COM(2025)0989) would extend CBAM to downstream steel and aluminium goods from 2028; it is not law and is not reflected here.',
       'Does not determine the correct CN code for your goods — classification is a separate exercise and a customs matter.',
       'Scope was proposed for expansion to further product categories; bundled lists may lag.',
     ],
@@ -79,6 +81,8 @@ const REG = {
     assurance: { level: 'structural', basis: 'prefix match is deterministic; bundled list can lag amendment' },
     limitations: [
       'A non-match is NOT proof the product is outside EUDR. Annex I is the authority.',
+      'Where inScope is "requires_verification", Annex I lists the heading only partially ("ex") and this service cannot decide it. Much of the cattle, rubber and wood scope is of this kind.',
+      'A Commission delegated act amending Annex I was adopted on 13 July 2026 and is NOT reflected in these entries. Verify against the consolidated text.',
       'A simplification package was in trilogue as of the asOf date and was not binding. Deadlines and scope may change.',
     ],
   },
@@ -100,7 +104,9 @@ const REG = {
     assurance: { level: 'structural', basis: 'field presence, format and internal consistency only' },
     limitations: [
       'Does NOT check deforestation. Not against satellite data, not against any forest baseline, not at all.',
-      'Does not verify legality of production under the laws of the country of production, which the Regulation also requires.',
+      'Does NOT test the legality-of-production limb (Art. 3(b), Art. 2(40), Art. 9(1)(h)) at all — land use rights, environmental protection, forest rules, third-party rights, labour and human rights, FPIC, tax, anti-corruption, trade and customs. This is an independent limb of the obligation and a structurally valid DDS says nothing about it.',
+      'The Annex II field set is not the same thing as the Art. 8-9 due-diligence information set. Passing this check does not mean due diligence was performed.',
+      'Does not apply the Art. 4a simplified regime for micro and small primary operators, whose field expectations differ and where a postal address may replace geolocation.',
       'Does not submit to the EU Information System and does not create a DDS reference number.',
       'A structurally valid DDS containing false statements remains a false statement, with the operator liable.',
     ],
